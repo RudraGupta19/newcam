@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CV40 Touchscreen Control Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: black; 
+            color: white; 
+            font-family: Arial, sans-serif; 
+            overflow: hidden;
+            touch-action: manipulation;
+            user-select: none;
+        }
+        
+        .container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            padding: 40px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 60px;
+        }
+        
+        .title {
+            font-size: 48px;
+            font-weight: 300;
+            color: white;
+            transition: color 0.3s;
+        }
+        
+        .title.red-boost {
+            color: #ff6666;
+        }
+        
+        .settings-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            font-size: 32px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .settings-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .red-boost-btn {
+            position: absolute;
+            top: 140px;
+            right: 40px;
+            padding: 12px 20px;
+            border-radius: 25px;
+            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .red-boost-btn.active {
+            background: rgba(255, 0, 0, 0.8);
+            border: 2px solid red;
+            font-weight: bold;
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 120px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-evenly;
+            align-items: center;
+        }
+        
+        .control-btn {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: #404040;
+            border: none;
+            color: white;
+            font-size: 48px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transition: all 0.2s;
+        }
+        
+        .control-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .record-btn {
+            width: 160px;
+            height: 160px;
+            background: red;
+            position: relative;
+        }
+        
+        .record-btn.recording {
+            animation: pulse 1s infinite;
+        }
+        
+        .record-btn.paused {
+            background: orange;
+        }
+        
+        .record-dot {
+            width: 48px;
+            height: 48px;
+            background: white;
+            border-radius: 50%;
+        }
+        
+        .record-btn.recording .record-dot {
+            display: none;
+        }
+        
+        .record-btn.recording::after {
+            content: '⏹';
+            font-size: 64px;
+            color: white;
+        }
+        
+        .record-btn.paused::after {
+            content: '▶';
+            font-size: 64px;
+            color: white;
+        }
+        
+        .wb-btn {
+            background: #6c757d;
+            font-size: 30px;
+            font-weight: bold;
+        }
+        
+        .wb-btn.active {
+            background: green;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .message {
+            position: absolute;
+            bottom: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 255, 0, 0.8);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 16px;
+            display: none;
+        }
+        
+        .config-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+        
+        .config-panel input {
+            background: #333;
+            color: white;
+            border: 1px solid #666;
+            padding: 5px;
+            margin: 5px;
+            border-radius: 3px;
+        }
+        
+        .config-panel button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="config-panel">
+            <div>Main Device IP:</div>
+            <input type="text" id="mainDeviceIP" value="192.168.1.100" placeholder="192.168.1.100">
+            <button onclick="updateConfig()">Update</button>
+            <div style="margin-top: 10px; font-size: 12px;">
+                Status: <span id="connectionStatus">Disconnected</span>
+            </div>
+        </div>
+        
+        <div class="header">
+            <div class="title" id="title">Arthroscopy</div>
+            <button class="settings-btn" onclick="openSettings()">⚙</button>
+        </div>
+        
+        <button class="red-boost-btn" id="redBoostBtn" onclick="toggleRedBoost()">Red Boost</button>
+        
+        <div class="controls">
+            <button class="control-btn" onclick="capturePhoto()">📷</button>
+            <button class="control-btn record-btn" id="recordBtn" onclick="toggleRecording()">
+                <div class="record-dot"></div>
+            </button>
+            <button class="control-btn wb-btn" id="wbBtn" onclick="whiteBalance()">WB</button>
+        </div>
+        
+        <div class="message" id="message"></div>
+    </div>
+
+    <script>
+        let API_BASE = 'http://localhost:8081';
+        let isRecording = false;
+        let isPaused = false;
+        let sessionStarted = false;
+        let redBoost = false;
+        let whiteBalanceActive = false;
+
+        // Load saved config (not needed for single PC setup)
+        document.getElementById('mainDeviceIP').value = 'localhost';
+        API_BASE = 'http://localhost:8081';
+
+        function updateConfig() {
+            const ip = document.getElementById('mainDeviceIP').value;
+            API_BASE = `http://${ip}:8081`;
+            localStorage.setItem('mainDeviceIP', ip);
+            checkConnection();
+        }
+
+        function checkConnection() {
+            fetch(`${API_BASE}/api/settings`)
+                .then(response => {
+                    if (response.ok) {
+                        document.getElementById('connectionStatus').textContent = 'Connected';
+                        document.getElementById('connectionStatus').style.color = 'green';
+                    } else {
+                        throw new Error('Not connected');
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('connectionStatus').textContent = 'Disconnected';
+                    document.getElementById('connectionStatus').style.color = 'red';
+                });
+        }
+
+        function showMessage(text, duration = 2000) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.style.display = 'block';
+            setTimeout(() => msg.style.display = 'none', duration);
+        }
+
+        async function startSession() {
+            const doctor = prompt('Doctor Name:', 'Dr. Smith') || 'Dr. Smith';
+            const hospital = prompt('Hospital:', 'General Hospital') || 'General Hospital';
+            const surgery = prompt('Surgery Type:', 'Arthroscopy') || 'Arthroscopy';
+            const patient = prompt('Patient Name:', 'John Doe') || 'John Doe';
+            const technician = prompt('Technician:', 'Tech1') || 'Tech1';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/session/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ doctor, hospital, surgery, patient, technician })
+                });
+
+                if (response.ok) {
+                    sessionStarted = true;
+                    showMessage('Session started');
+                    return true;
+                }
+            } catch (e) {
+                showMessage('Session start failed', 3000);
+            }
+            return false;
+        }
+
+        async function capturePhoto() {
+            try {
+                const response = await fetch(`${API_BASE}/api/capture`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    showMessage('Photo captured');
+                }
+            } catch (e) {
+                showMessage('Photo capture failed');
+            }
+        }
+
+        async function toggleRecording() {
+            if (!sessionStarted) {
+                const started = await startSession();
+                if (!started) return;
+            }
+
+            const recordBtn = document.getElementById('recordBtn');
+            
+            try {
+                if (!isRecording) {
+                    const response = await fetch(`${API_BASE}/api/recording/start`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    if (response.ok) {
+                        isRecording = true;
+                        isPaused = false;
+                        recordBtn.classList.add('recording');
+                        showMessage('Recording started');
+                    }
+                } else if (isPaused) {
+                    const response = await fetch(`${API_BASE}/api/recording/resume`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    if (response.ok) {
+                        isPaused = false;
+                        recordBtn.classList.remove('paused');
+                        showMessage('Recording resumed');
+                    }
+                } else {
+                    const response = await fetch(`${API_BASE}/api/recording/pause`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    
+                    if (response.ok) {
+                        isPaused = true;
+                        recordBtn.classList.add('paused');
+                        showMessage('Recording paused');
+                    }
+                }
+            } catch (e) {
+                showMessage('Recording error');
+            }
+        }
+
+        // Long press to stop recording
+        let longPressTimer;
+        document.getElementById('recordBtn').addEventListener('touchstart', (e) => {
+            if (isRecording) {
+                longPressTimer = setTimeout(async () => {
+                    try {
+                        const response = await fetch(`${API_BASE}/api/recording/stop`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+                        
+                        if (response.ok) {
+                            isRecording = false;
+                            isPaused = false;
+                            document.getElementById('recordBtn').classList.remove('recording', 'paused');
+                            showMessage('Recording stopped');
+                        }
+                    } catch (e) {
+                        showMessage('Stop recording failed');
+                    }
+                }, 1000);
+            }
+        });
+
+        document.getElementById('recordBtn').addEventListener('touchend', () => {
+            clearTimeout(longPressTimer);
+        });
+
+        async function whiteBalance() {
+            if (whiteBalanceActive) return;
+            
+            whiteBalanceActive = true;
+            const wbBtn = document.getElementById('wbBtn');
+            wbBtn.classList.add('active');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/white-balance`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                setTimeout(() => {
+                    whiteBalanceActive = false;
+                    wbBtn.classList.remove('active');
+                    if (response.ok) {
+                        showMessage('White balance complete');
+                    }
+                }, 1000);
+            } catch (e) {
+                whiteBalanceActive = false;
+                wbBtn.classList.remove('active');
+                showMessage('White balance failed');
+            }
+        }
+
+        async function toggleRedBoost() {
+            redBoost = !redBoost;
+            const btn = document.getElementById('redBoostBtn');
+            const title = document.getElementById('title');
+            
+            if (redBoost) {
+                btn.classList.add('active');
+                title.classList.add('red-boost');
+            } else {
+                btn.classList.remove('active');
+                title.classList.remove('red-boost');
+            }
+            
+            try {
+                const preset = redBoost ? 'red_boost' : 'arthroscopy';
+                await fetch(`${API_BASE}/api/presets/apply`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ preset })
+                });
+            } catch (e) {
+                showMessage('Preset change failed');
+            }
+        }
+
+        function openSettings() {
+            // Simple settings - in production this would open a full settings page
+            const brightness = prompt('Brightness (-100 to 100):', '0');
+            const zoom = prompt('Zoom (1.0 to 4.0):', '1.0');
+            
+            if (brightness !== null && zoom !== null) {
+                fetch(`${API_BASE}/api/settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        colors: { brightness: parseInt(brightness) },
+                        visuals: { zoom: parseFloat(zoom) }
+                    })
+                }).then(() => showMessage('Settings updated'));
+            }
+        }
+
+        // Check connection on load
+        checkConnection();
+        setInterval(checkConnection, 5000);
+    </script>
+</body>
+</html>

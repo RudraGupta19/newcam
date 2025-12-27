@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CV40 Camera API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: white; }
+        button { padding: 10px 20px; margin: 5px; background: #007acc; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #005a99; }
+        .response { background: #333; padding: 10px; margin: 10px 0; border-radius: 5px; white-space: pre-wrap; }
+        .error { background: #660000; }
+        .success { background: #006600; }
+        input, textarea { background: #333; color: white; border: 1px solid #666; padding: 8px; margin: 5px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>CV40 Camera System - API Test</h1>
+    
+    <h2>Session Management</h2>
+    <div>
+        <input type="text" id="doctor" placeholder="Doctor Name" value="Dr. Smith">
+        <input type="text" id="hospital" placeholder="Hospital" value="Test Hospital">
+        <input type="text" id="surgery" placeholder="Surgery Type" value="Arthroscopy">
+        <input type="text" id="patient" placeholder="Patient Name" value="John Doe">
+        <input type="text" id="technician" placeholder="Technician" value="Tech1">
+        <button onclick="startSession()">Start Session</button>
+    </div>
+    
+    <h2>Camera Controls</h2>
+    <button onclick="captureStill()">Capture Still Image</button>
+    <button onclick="startRecording()">Start Recording</button>
+    <button onclick="pauseRecording()">Pause Recording</button>
+    <button onclick="resumeRecording()">Resume Recording</button>
+    <button onclick="stopRecording()">Stop Recording</button>
+    <button onclick="whiteBalance()">White Balance</button>
+    
+    <h2>Settings</h2>
+    <button onclick="getSettings()">Get Current Settings</button>
+    <div>
+        <label>Brightness: <input type="range" id="brightness" min="-100" max="100" value="0" onchange="updateSettings()"></label>
+        <label>Zoom: <input type="range" id="zoom" min="1" max="4" step="0.1" value="1.0" onchange="updateSettings()"></label>
+        <label>Contrast: <input type="range" id="contrast" min="-100" max="100" value="0" onchange="updateSettings()"></label>
+    </div>
+    
+    <h2>Response Log</h2>
+    <div id="log"></div>
+    
+    <script>
+        const API_BASE = 'http://localhost:8081/api';
+        
+        function log(message, isError = false) {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'response ' + (isError ? 'error' : 'success');
+            entry.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            logDiv.insertBefore(entry, logDiv.firstChild);
+        }
+        
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            try {
+                const options = {
+                    method,
+                    headers: { 'Content-Type': 'application/json' }
+                };
+                if (body) options.body = JSON.stringify(body);
+                
+                const response = await fetch(API_BASE + endpoint, options);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    log(`${method} ${endpoint}: ${JSON.stringify(data, null, 2)}`);
+                } else {
+                    log(`${method} ${endpoint} ERROR: ${JSON.stringify(data, null, 2)}`, true);
+                }
+                return data;
+            } catch (error) {
+                log(`${method} ${endpoint} NETWORK ERROR: ${error.message}`, true);
+            }
+        }
+        
+        function startSession() {
+            const body = {
+                doctor: document.getElementById('doctor').value,
+                hospital: document.getElementById('hospital').value,
+                surgery: document.getElementById('surgery').value,
+                patient: document.getElementById('patient').value,
+                technician: document.getElementById('technician').value
+            };
+            apiCall('/session/start', 'POST', body);
+        }
+        
+        function captureStill() { apiCall('/capture', 'POST'); }
+        function startRecording() { apiCall('/recording/start', 'POST'); }
+        function pauseRecording() { apiCall('/recording/pause', 'POST'); }
+        function resumeRecording() { apiCall('/recording/resume', 'POST'); }
+        function stopRecording() { apiCall('/recording/stop', 'POST'); }
+        function whiteBalance() { apiCall('/white-balance', 'POST'); }
+        
+        async function getSettings() {
+            const data = await apiCall('/settings', 'GET');
+            if (data) {
+                document.getElementById('brightness').value = data.colors?.brightness || 0;
+                document.getElementById('zoom').value = data.visuals?.zoom || 1.0;
+                document.getElementById('contrast').value = data.colors?.contrast || 0;
+            }
+        }
+        
+        function updateSettings() {
+            const body = {
+                visuals: { zoom: parseFloat(document.getElementById('zoom').value) },
+                colors: { 
+                    brightness: parseInt(document.getElementById('brightness').value),
+                    contrast: parseInt(document.getElementById('contrast').value)
+                }
+            };
+            apiCall('/settings', 'POST', body);
+        }
+        
+        // Load initial settings
+        getSettings();
+    </script>
+</body>
+</html>

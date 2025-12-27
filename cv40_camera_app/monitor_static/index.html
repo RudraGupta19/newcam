@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CV40 Monitor Display</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: black; 
+            color: white; 
+            font-family: Arial, sans-serif; 
+            overflow: hidden;
+            cursor: none;
+        }
+        
+        .monitor-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            background: radial-gradient(circle at 30% 20%, #ff9999, #ff6666, #cc3333, #990000);
+        }
+        
+        .tissue-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.7;
+        }
+        
+        .record-dot {
+            position: absolute;
+            top: 40px;
+            right: 40px;
+            width: 20px;
+            height: 20px;
+            background: red;
+            border-radius: 50%;
+            display: none;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        .parameter-slider {
+            position: absolute;
+            top: 40%;
+            left: 100px;
+            right: 100px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #007acc;
+            border-radius: 12px;
+            padding: 20px;
+            display: none;
+            transform: translateY(-50px);
+            transition: all 0.3s ease;
+        }
+        
+        .parameter-slider.show {
+            display: block;
+            transform: translateY(0);
+        }
+        
+        .parameter-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .slider {
+            flex: 1;
+            height: 8px;
+            background: #666;
+            border-radius: 4px;
+            position: relative;
+        }
+        
+        .slider-track {
+            height: 100%;
+            background: #007acc;
+            border-radius: 4px;
+            transition: width 0.2s;
+        }
+        
+        .slider-thumb {
+            position: absolute;
+            top: -8px;
+            width: 24px;
+            height: 24px;
+            background: #007acc;
+            border-radius: 50%;
+            transition: left 0.2s;
+        }
+        
+        .parameter-value {
+            background: rgba(0, 122, 204, 0.2);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-weight: bold;
+            color: #007acc;
+            min-width: 80px;
+            text-align: center;
+        }
+        
+        .photo-popup {
+            position: absolute;
+            bottom: 100px;
+            right: 100px;
+            width: 150px;
+            height: 100px;
+            background: #333;
+            border: 2px solid white;
+            border-radius: 8px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            text-align: center;
+            animation: photoPopup 2s ease-out;
+        }
+        
+        @keyframes photoPopup {
+            0% { transform: scale(0); opacity: 0; }
+            20% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .white-balance-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 255, 0, 0.8);
+            padding: 20px 40px;
+            border-radius: 20px;
+            font-size: 18px;
+            display: none;
+        }
+        
+        .test-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .test-controls button {
+            padding: 10px 20px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .test-controls button:hover {
+            background: #005a99;
+        }
+    </style>
+</head>
+<body>
+    <div class="monitor-container">
+        <canvas class="tissue-overlay" id="tissueCanvas"></canvas>
+        
+        <div class="record-dot" id="recordDot"></div>
+        
+        <div class="parameter-slider" id="parameterSlider">
+            <div class="parameter-name" id="parameterName">Zoom</div>
+            <div class="slider-container">
+                <div class="slider">
+                    <div class="slider-track" id="sliderTrack"></div>
+                    <div class="slider-thumb" id="sliderThumb"></div>
+                </div>
+                <div class="parameter-value" id="parameterValue">1.0x</div>
+            </div>
+        </div>
+        
+        <div class="photo-popup" id="photoPopup">
+            Photo<br>Captured
+        </div>
+        
+        <div class="white-balance-indicator" id="whiteBalanceIndicator">
+            White Balance Complete
+        </div>
+        
+        <div class="photo-popup" id="presetPopup">
+            Preset
+        </div>
+        
+        <div class="test-controls">
+            <button onclick="testRecording()">Toggle Recording</button>
+            <button onclick="testSlider('Zoom', 2.5, 1, 4, 'x')">Show Zoom</button>
+            <button onclick="testSlider('Brightness', 25, -100, 100, '')">Show Brightness</button>
+            <button onclick="testPhoto()">Test Photo</button>
+            <button onclick="testWhiteBalance()">Test WB</button>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isRecording = false;
+        let sliderTimeout = null;
+
+        // Initialize WebSocket connection
+        function initWebSocket() {
+            ws = new WebSocket('ws://localhost:8082/monitor/ws');
+            
+            ws.onopen = function() {
+                console.log('Monitor WebSocket connected');
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                handleOSDEvent(data);
+            };
+            
+            ws.onclose = function() {
+                console.log('Monitor WebSocket disconnected, reconnecting...');
+                setTimeout(initWebSocket, 1000);
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        function handleOSDEvent(event) {
+            switch(event.type) {
+                case 'recording_state':
+                    updateRecordingState(event.data.recording, event.data.paused);
+                    break;
+                case 'parameter_change':
+                    showParameterSlider(event.data.parameter, event.data.value);
+                    break;
+                case 'photo_captured':
+                    showPhotoPopup();
+                    break;
+                case 'white_balance':
+                    if (event.data.complete) {
+                        showWhiteBalanceComplete();
+                    }
+                    break;
+                case 'preset_applied':
+                    showPresetPopup(event.data.preset);
+                    break;
+            }
+        }
+
+        function updateRecordingState(recording, paused) {
+            isRecording = recording;
+            const recordDot = document.getElementById('recordDot');
+            recordDot.style.display = recording ? 'block' : 'none';
+            if (paused) {
+                recordDot.style.background = 'orange';
+            } else {
+                recordDot.style.background = 'red';
+            }
+        }
+
+        function showParameterSlider(parameter, value) {
+            const slider = document.getElementById('parameterSlider');
+            const nameEl = document.getElementById('parameterName');
+            const valueEl = document.getElementById('parameterValue');
+            const track = document.getElementById('sliderTrack');
+            const thumb = document.getElementById('sliderThumb');
+            
+            let min, max, unit;
+            switch(parameter) {
+                case 'Zoom':
+                    min = 1; max = 4; unit = 'x';
+                    break;
+                case 'Brightness':
+                case 'Contrast':
+                    min = -100; max = 100; unit = '';
+                    break;
+                case 'Saturation':
+                    min = -100; max = 100; unit = '';
+                    break;
+                case 'Hue':
+                    min = -180; max = 180; unit = '';
+                    break;
+                case 'Temperature':
+                    min = 2000; max = 10000; unit = 'K';
+                    break;
+                case 'Sharpness':
+                    min = 0; max = 2; unit = '';
+                    break;
+                case 'LowLightGain':
+                    min = 0; max = 1; unit = '';
+                    break;
+                default:
+                    min = 0; max = 100; unit = '';
+            }
+            
+            const percentage = ((value - min) / (max - min)) * 100;
+            
+            nameEl.textContent = parameter;
+            if (parameter === 'Zoom' || parameter === 'Sharpness') {
+                valueEl.textContent = value.toFixed(1) + unit;
+            } else if (parameter === 'Temperature') {
+                valueEl.textContent = Math.round(value) + unit;
+            } else {
+                valueEl.textContent = Math.round(value) + unit;
+            }
+            track.style.width = percentage + '%';
+            thumb.style.left = 'calc(' + percentage + '% - 12px)';
+            
+            slider.classList.add('show');
+            
+            clearTimeout(sliderTimeout);
+            sliderTimeout = setTimeout(() => {
+                slider.classList.remove('show');
+            }, 3000);
+        }
+
+        function showPhotoPopup() {
+            const popup = document.getElementById('photoPopup');
+            popup.style.display = 'flex';
+            setTimeout(() => {
+                popup.style.display = 'none';
+            }, 2000);
+        }
+
+        function showWhiteBalanceComplete() {
+            const indicator = document.getElementById('whiteBalanceIndicator');
+            indicator.style.display = 'block';
+            setTimeout(() => {
+                indicator.style.display = 'none';
+            }, 2000);
+        }
+
+        function showPresetPopup(name) {
+            const popup = document.getElementById('presetPopup');
+            popup.textContent = 'Preset: ' + name;
+            popup.style.display = 'flex';
+            setTimeout(() => {
+                popup.style.display = 'none';
+            }, 2000);
+        }
+
+        // Test functions for development
+        function testRecording() {
+            isRecording = !isRecording;
+            updateRecordingState(isRecording, false);
+        }
+
+        function testSlider(param, value, min, max, unit) {
+            showParameterSlider(param, value);
+        }
+
+        function testPhoto() {
+            showPhotoPopup();
+        }
+
+        function testWhiteBalance() {
+            showWhiteBalanceComplete();
+        }
+
+        // Draw simulated tissue background
+        function drawTissueBackground() {
+            const canvas = document.getElementById('tissueCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            // Draw organic shapes
+            for (let i = 0; i < 20; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const radius = 20 + Math.random() * 60;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, ${100 + Math.random() * 100}, ${100 + Math.random() * 100}, 0.6)`;
+                ctx.fill();
+            }
+            
+            // Draw vessel-like lines
+            ctx.strokeStyle = '#cc3333';
+            ctx.lineWidth = 3;
+            for (let i = 0; i < 10; i++) {
+                ctx.beginPath();
+                ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                ctx.quadraticCurveTo(
+                    Math.random() * canvas.width,
+                    Math.random() * canvas.height,
+                    Math.random() * canvas.width,
+                    Math.random() * canvas.height
+                );
+                ctx.stroke();
+            }
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            drawTissueBackground();
+            initWebSocket();
+        });
+
+        window.addEventListener('resize', drawTissueBackground);
+    </script>
+</body>
+</html>

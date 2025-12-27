@@ -1,0 +1,71 @@
+# Compiled binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go build artifacts
+backend/main
+backend/main.exe
+
+# Flutter build artifacts
+build/
+.dart_tool/
+*.dill
+*.track.dill
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+
+# Large SDK files (download separately)
+*.zip
+go1.*.zip
+flutter_*.zip
+flutter/
+go1.21.5.windows-amd64.zip
+flutter_windows_stable.zip
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Local development
+images/
+videos/
+recordings/
+
+# Environment files
+.env
+.env.local
+
+# Test files
+test_output/
+*.test
+
+# Coverage
+coverage/
+*.coverage
+
+# Node modules (if any)
+node_modules/
+
+# Local transfer packages
+transfer/
+CV40_System.zip
